@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="content">
+    {% for key, value in data.items() %}
+        <div class="card">
+            <h2> {{ key }}</h2>
+            <p class="content-value" data-token="{{ value if (key == 'access_token' or key == 'patient') else none }}">{{ value }}</p>
+        </div>
+    {% endfor %}
+</div>
+<div class="buttons">
+    <div class="button" onclick="PatientResource()"><strong class="buttontext">Fetch Patient Resource</strong></div>
+</div>
+<div class="resourceviewer">
+    <h1 class="resourceviewer-header">Resource</h1>
+    <pre class="json-viewer"></pre>
+    <!-- <div class="resourceviewer-text"></div> -->
+</div>
+{% endblock %}
+
+<script>
+    function PatientResource(){
+    let token = $(".home").attr("data-token")
+    // console.log(token)
+    let patient = $(".home").attr("data-patient")
+    // console.log(patient)
+
+    const xhr = new XMLHttpRequest();
+    if (patient){
+        xhr.open('GET', '/api/fhir?access_token='+token+'&patient='+patient, true);
+    }
+    else{
+        xhr.open('GET', '/api/fhir?access_token='+token, true);
+    }
+    xhr.onload = FHIRDataRetrieved;
+    xhr.send(); 
+}
+</script>

@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <p class='home-content-text'> This application is intended for testing of FHIR queries and SMART on FHIR workflows.</p>
+    <p class='home-content-text'> Launch a SMART on FHIR application using this URL as the Redirect URI. </p>
+    <p class='home-content-text'>The application allows you to make FHIR queries using your authentication token, and shows you the code you can use to build these yourself!</p>
+</div>
+<div class="buttons">
+    <div class="button backend" onclick="backend()"><strong class="buttontext">Simulate Backend Authentication</strong></div>
+    <div class="button backend" onclick="standalone()"><strong class="buttontext">Simulate Patient Standalone SMART Launch</strong></div>
+</div>
+<script>
+    function backend() {
+        window.location.replace(window.location +"systemlaunch");
+    }
+    async function standalone() {
+        try {
+            const response = await fetch('/api/config/standalone');
+            if (response.ok) {
+                const resp = await response.json();
+                console.log(resp);
+                window.location.assign(resp.url);
+            } else {
+                alert("Error: " + response.status);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert("An error occurred while processing the request.");
+        }
+    }
+</script>
+
+{% endblock %}
