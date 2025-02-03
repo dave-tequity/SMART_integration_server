@@ -14,6 +14,8 @@ Setup instructions:
 6. Run the flask app
 
 
+This app has a private key hardcoded for the server-side launch. You can replace that however you'd like or use it. Included is the corresponding public key that can be associated with your app's client_id on the EHR webpage (e.g. fhir.epic.com)
+
 environment variables:
 baseUrl=http://127.0.0.1:5000
 epic_provider_secret=<can be null if not using>
