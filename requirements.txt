@@ -11,3 +11,4 @@ sqlalchemy
 flask-login
 flask-migrate
 psycopg2-binary
+jwcrypto

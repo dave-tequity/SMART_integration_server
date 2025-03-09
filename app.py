@@ -1,8 +1,10 @@
 
 import json
-from flask import Flask, request, render_template, make_response, redirect
+from flask import Flask, request, render_template, make_response, redirect, jsonify
 import logging
 import jwt
+from jwcrypto import jwk
+import json
 from flask_migrate import Migrate
 import requests
 import urllib
@@ -181,9 +183,9 @@ response_type=code
 @app.route('/systemlaunch', methods=['GET','POST'])
 def system_launch():
     logging.warn(service_client_id)
-    cert_str="-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCa3qMnTYsWNYnZ\nKtGyRd8mdk/FO0Ivi3WnMc3pCH5nFW160acSTP1x02eRvYylHpag1SScOhdLSTrM\nTqMj3ra8z/KMyRq6csDCE5AYIyndn5Y01hMnIfsW9jsKaksl3l6fvgPNvb7+ANoI\nM6TDQnnVcHfe9qkCx7t1LpqiZHgakqY0ru3asVAICB93CBVtQlmpTgqmS1UfGKUm\nhBDRmPqHqiXF/2J02ypdiF0Ln3L5Q0aYJZpKG2ZCPoHVDX0/IOb5Yf4L6EpWTNXz\n8e2sZRDUxbNC5CCVKMmaCmWQQ6bTBC0YerUDp+IT5Q56B5ENgHuuaqlohN7LS6nn\nEX+dkPT7AgMBAAECggEAOfzhBEdhq9gyHFGPIPxOmN018zjECH9kd00Lt5TJl5mL\nW7CCqTSQtX0dy5E4x17Tsbb9NU3/CN6LmJJdPYIX1EzcmeB3FJcBG+otSwxnkac+\nm9wIYd+0X52k77prFuvTbGa+j9vbVspE2UtVBxOuAMBS8fZTxEm7JB5mIiYSXogy\nghkQI67sLb1Tkfx6u//O1cSjMrqqs2ToxuT6UWKgIDrN51rBb7hybnH084JTPF0q\n2LyuYu97oC2r1IOQ0Z9sWRJhS6aDpRVfX68RmH34k6HJaEzcIMmCq5nwSy/hl7p+\nOPmWPh8qQX3rtOvY5CQODHWEzrHZC5tdcxj/c5eriQKBgQDfS2nts5a0Lz+RW1IX\nSYsE9Nt3xL6hetxyxCQya8441zH/LuGhjHwwl34vXBSnXqwiU1zvqw5gfFuHOjzR\nYUEHVGjQJ7H6jwjNW36tRmxNrMzRzb84rK206I0WL2VGS5reR1NUvJWb+AsxMHqR\nDqNSYbPC9PGfNMUIqt/0kAhKlQKBgQCxjZV5M8Soa906lVoTdVKrrxnreAxmYPX5\nh6bj3u7uRLQir9rdBJoq2T3gjefCyATorhKBatvsBN0gU4bOgrluPUdFrUxSI+pc\n0MJw1yWJkCq8kVxm0lYtP/1GT7ShBqTIiXxDFJhmIRtrW2URGtK/cov33GHlQn/R\nIBWEHp7tTwKBgQDUKBcRXhzGPk4rkZTBw4Juxybu+OQXEWD7OhkaPwvFPdGnH6gJ\nki09DfM6lEabb3wlcQdQQDp8uitMpKy8U6cxi6W6gLy9z8ERPOlzQQIOGyzP+qjA\n9HBm/r1uYsHatGME5sfqLvQHKPmZVvJdeIb88w+VIJ2iIsVCovf+qgr2sQKBgDti\nv7vqNLygVz5g9d/MPfpudpzrajpT8/GiDY/p4MCQ+i8f4nRKNcZfIvMYg4wCmqG4\nlzfyJdyrQ8qsJUqtLphQpqYHcJ+Io7qnmGFllIiOT70CYYWClJBN9sitoBy7vCHW\n2lkVamO+bw1ZZFR0REkEZwxgCd5Ef7vSn1+xXjbBAoGBAJcipVECi8iVrfcJrM1Q\nPJIHsPkcYd2+F4Bti62ylcWVaaTt95P1NlKysf6EnLpTadXhSLXX9lHtznl5YEm5\nCQ9lecMCDyX+LSskNyNtxANaZTECY0y8MvMMpOfFyyvbxBG6xPQry06gV3v4UB8b\nIu28TT9qHrIAFhn7zQLWZ+GE\n-----END PRIVATE KEY-----"
+    cert_str="-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDZPp9a7KolkLCI\nnZGKadMxa6/MNehE3ypVhuh8MLfr08G7bAVzt0ukEYM6qW3skjasBLjDVmDt3vi9\neDJWMnNSzA/8AqKGto25wksIz+yZhaTEQHssGfRtq/2hc4dPFTsGFjyuHC8nZpmm\na642B58Os6QpPKVVS9Qv+wVVjR5fUxbvR1iXPsL4rNBPtfwsAFRE1yBO37EHmw3j\n0QAoX9MC2saI4pqf3Mk4hD1ddSMqk72y5DhgQrrlMFDC9VrzXiUZUljS4KCC3xM8\nuYgkmDZeRL42/qsJLgIItRm/kJscn57c1q4PNh9cbdKLbRjl4+oJy15aPLvjU9Yj\nDmfrqHxxAgMBAAECggEAFH/yiSGyh5Nw+R9HS9SjG3OCNgazOYaGh+YQW6G8RUpo\n6l7t38bA4kVNyRQSXaPJeW+DoNkukdu7xKNKOrSNiddcPcdg303sL0Z8jqMSPEVu\ncB92kAmN9WhoqVrNvqJt/KvOA48AyxrFLn1UReBvu7Mrb0G8B0G9zt5E2VcU8eEo\nkot2CNBpESzyjsKuff0cjDR49cfyThEa480uRUAL20bjJE110zHpOgtpzQ4iAtaD\nNmJHv+w3Qjwu5oufK2Tl81O79f4OqLVx5nTanc30w3WMiQfBf+mgKPWhPHBH2eDI\nq7GVcq6a2y8ekhYgXcxHtbd7NJflHZmDIh1vCTElfQKBgQDvSQswny9j+coR1Wi9\n14xcrxOjt2HUFGXq8W2Q7gEFQ7MPsTMnP3toCbbk7VdV74+fnw7cTJZtis1ysKqt\nWDx02i4q61AAF/xRlPB9+mNby+AJOXcMARJuaLhdsGVU1+NjwxzmqrIVKydUzZDf\nLBhdmu3g3YieUagKopj6p8tgPQKBgQDoa3ERDjghPYmETFJ4ND42regdZxgG0i19\nkL5wgPexiFut5KtBDclg77BdWt93urhclsSEO383CFe/RitvtW+EtcCfIevlu8yd\nn+4rHpTowNjNBGOtqHKrdHKpiC18zOu665nA7Ide3YXguFYN6WofvTAZHD95n1jU\nKJVrVcJ8RQKBgQCErsgZqespULUPtnph6kfWjO4i9ei1JKpu4HiUyKSgOq3roaJv\nvO+8/MYBoumuqSvGovgmiAFRtIm/ct7xR+AeG21GNz0hECvFQQUpldHKcP5Fnyu3\n6FBEEKVKrilCJoPcKbC45yXgPxGMIICYf2bzYJlO+whqYXUAkLCrLKfFMQKBgDdC\nhGmHtfTBStb3xovp7/jUNGH5Rw8oHcTDC2R4ZWwCfbnEqqsW+hBgLNClcIhpDriE\n6EiAVOjixOonZuByhQdKp3euewXuNuIrSldaOBF2+JUWPBTn/guh7jk8tYP8vPd+\nWNoz4qO9i704Vs2L972AH9V4j+b86gPXel9AzrL5AoGAV4eYPfwl0oc4MSOGiegM\nHmcOQRsJWzrEoSopGoLXYHwkxQOzcsMYnoGVX7Dqv81bgNm75AuhK/sZXhUVt+yX\nhAy9hrUn0EmnloYbZEWZRQixCx2NOdBaXDrwBmAb59bOnNtZfUGkBVIrSSUeI6yE\njRwJWRwRmno1GBbBc4a/l1g=\n-----END PRIVATE KEY-----"
     epic_token_url = "https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token"
-    header = {'alg': 'RS256', 'typ': 'JWT'} 
+    header = {'alg': 'RS384', 'typ': 'JWT'} 
     current_time = int(time.time())
     payload = {
         'iss': service_client_id,
@@ -195,7 +197,7 @@ def system_launch():
         'iat': current_time, #same as nbf
     }
     cert_str = cert_str.encode()
-    token = jwt.encode(payload, cert_str, algorithm='RS256',headers=header)
+    token = jwt.encode(payload, cert_str, algorithm='RS384',headers=header)
 
     body = {'grant_type': 'client_credentials',
     'client_assertion_type': 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
@@ -246,6 +248,19 @@ def getPatientFHIRResource():
             logging.warn(r.text)
             return r.text
     return "access_token not provided"
+
+@app.route('/api/jwks', methods=['GET'])
+def getJWKS():
+    keys = []
+    public_keys_dir = 'public_keys'
+    for f in os.listdir(public_keys_dir):
+        file_path = os.path.join(public_keys_dir, f)
+        with open(file_path, 'rb') as pemfile:
+            keys.append(jwk.JWK.from_pem(pemfile.read()))
+    jwks = {
+        "keys": [json.loads(key.export_public()) for key in keys]
+    }
+    return jsonify(jwks)
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=80)
