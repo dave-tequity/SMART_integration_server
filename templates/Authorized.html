@@ -20,20 +20,23 @@
 {% endblock %}
 
 <script>
-    function PatientResource(){
-    let token = $(".home").attr("data-token")
-    // console.log(token)
-    let patient = $(".home").attr("data-patient")
-    // console.log(patient)
+    document.addEventListener("DOMContentLoaded", function() {
+        console.log("Script loaded and DOM fully parsed."); // Debugging log
+        window.PatientResource = function() {
+            console.log("PatientResource function called."); // Debugging log
+            let token = $(".home").attr("data-token");
+            console.log("Token:", token);
+            let patient = $(".home").attr("data-patient");
+            console.log("Patient:", patient);
 
-    const xhr = new XMLHttpRequest();
-    if (patient){
-        xhr.open('GET', '/api/fhir?access_token='+token+'&patient='+patient, true);
-    }
-    else{
-        xhr.open('GET', '/api/fhir?access_token='+token, true);
-    }
-    xhr.onload = FHIRDataRetrieved;
-    xhr.send(); 
-}
+            const xhr = new XMLHttpRequest();
+            if (patient) {
+                xhr.open('GET', '/api/fhir?access_token=' + token + '&patient=' + patient, true);
+            } else {
+                xhr.open('GET', '/api/fhir?access_token=' + token, true);
+            }
+            xhr.onload = FHIRDataRetrieved;
+            xhr.send();
+        };
+    });
 </script>

@@ -1,0 +1,14 @@
+sequenceDiagram
+    participant Patient
+    participant EpicEHR [MyCharts]
+    participant SMARTApp
+    participant EpicOAuth
+
+    Patient->>EpicEHR [MyCharts]: Clicks SMART app
+    EpicEHR [MyCharts]->>SMARTApp: GET /launch?launch=...&iss=...
+    SMARTApp->>EpicOAuth: Redirect to /authorize (with state, client_id, etc.)
+    Patient->>EpicOAuth: Authenticates
+    EpicOAuth->>SMARTApp: Redirect /launch/redirect?code=...&state=...
+    SMARTApp->>EpicOAuth: POST /token (exchange code for token)
+    EpicOAuth->>SMARTApp: Returns access_token, id_token
+    SMARTApp->>Patient: Renders authorized view

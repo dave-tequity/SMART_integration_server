@@ -182,7 +182,7 @@ response_type=code
 
 @app.route('/systemlaunch', methods=['GET','POST'])
 def system_launch():
-    logging.warn(service_client_id)
+    logging.warn(f"service_client_id: {service_client_id}")
     cert_str="-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDZPp9a7KolkLCI\nnZGKadMxa6/MNehE3ypVhuh8MLfr08G7bAVzt0ukEYM6qW3skjasBLjDVmDt3vi9\neDJWMnNSzA/8AqKGto25wksIz+yZhaTEQHssGfRtq/2hc4dPFTsGFjyuHC8nZpmm\na642B58Os6QpPKVVS9Qv+wVVjR5fUxbvR1iXPsL4rNBPtfwsAFRE1yBO37EHmw3j\n0QAoX9MC2saI4pqf3Mk4hD1ddSMqk72y5DhgQrrlMFDC9VrzXiUZUljS4KCC3xM8\nuYgkmDZeRL42/qsJLgIItRm/kJscn57c1q4PNh9cbdKLbRjl4+oJy15aPLvjU9Yj\nDmfrqHxxAgMBAAECggEAFH/yiSGyh5Nw+R9HS9SjG3OCNgazOYaGh+YQW6G8RUpo\n6l7t38bA4kVNyRQSXaPJeW+DoNkukdu7xKNKOrSNiddcPcdg303sL0Z8jqMSPEVu\ncB92kAmN9WhoqVrNvqJt/KvOA48AyxrFLn1UReBvu7Mrb0G8B0G9zt5E2VcU8eEo\nkot2CNBpESzyjsKuff0cjDR49cfyThEa480uRUAL20bjJE110zHpOgtpzQ4iAtaD\nNmJHv+w3Qjwu5oufK2Tl81O79f4OqLVx5nTanc30w3WMiQfBf+mgKPWhPHBH2eDI\nq7GVcq6a2y8ekhYgXcxHtbd7NJflHZmDIh1vCTElfQKBgQDvSQswny9j+coR1Wi9\n14xcrxOjt2HUFGXq8W2Q7gEFQ7MPsTMnP3toCbbk7VdV74+fnw7cTJZtis1ysKqt\nWDx02i4q61AAF/xRlPB9+mNby+AJOXcMARJuaLhdsGVU1+NjwxzmqrIVKydUzZDf\nLBhdmu3g3YieUagKopj6p8tgPQKBgQDoa3ERDjghPYmETFJ4ND42regdZxgG0i19\nkL5wgPexiFut5KtBDclg77BdWt93urhclsSEO383CFe/RitvtW+EtcCfIevlu8yd\nn+4rHpTowNjNBGOtqHKrdHKpiC18zOu665nA7Ide3YXguFYN6WofvTAZHD95n1jU\nKJVrVcJ8RQKBgQCErsgZqespULUPtnph6kfWjO4i9ei1JKpu4HiUyKSgOq3roaJv\nvO+8/MYBoumuqSvGovgmiAFRtIm/ct7xR+AeG21GNz0hECvFQQUpldHKcP5Fnyu3\n6FBEEKVKrilCJoPcKbC45yXgPxGMIICYf2bzYJlO+whqYXUAkLCrLKfFMQKBgDdC\nhGmHtfTBStb3xovp7/jUNGH5Rw8oHcTDC2R4ZWwCfbnEqqsW+hBgLNClcIhpDriE\n6EiAVOjixOonZuByhQdKp3euewXuNuIrSldaOBF2+JUWPBTn/guh7jk8tYP8vPd+\nWNoz4qO9i704Vs2L972AH9V4j+b86gPXel9AzrL5AoGAV4eYPfwl0oc4MSOGiegM\nHmcOQRsJWzrEoSopGoLXYHwkxQOzcsMYnoGVX7Dqv81bgNm75AuhK/sZXhUVt+yX\nhAy9hrUn0EmnloYbZEWZRQixCx2NOdBaXDrwBmAb59bOnNtZfUGkBVIrSSUeI6yE\njRwJWRwRmno1GBbBc4a/l1g=\n-----END PRIVATE KEY-----"
     epic_token_url = "https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token"
     header = {'alg': 'RS384', 'typ': 'JWT'} 
@@ -198,6 +198,7 @@ def system_launch():
     }
     cert_str = cert_str.encode()
     token = jwt.encode(payload, cert_str, algorithm='RS384',headers=header)
+    logging.warn(f"token: {token}")
 
     body = {'grant_type': 'client_credentials',
     'client_assertion_type': 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
@@ -205,21 +206,25 @@ def system_launch():
     }
 
     head = {'Content-Type': 'application/x-www-form-urlencoded'}
+    curl_request = f"curl -X POST {epic_token_url} -H 'Content-Type: application/x-www-form-urlencoded' -d 'grant_type=client_credentials&client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer&client_assertion={token}'"
+    print(f"curl_request: {curl_request}")
 
-    r = requests.post(epic_token_url, data=body, headers=head)
-    response_data = json.loads(r.text)
-    # logging.warn(response_data)
+    # r = requests.post(epic_token_url, data=body, headers=head)
+    # response_data = json.loads(r.text)
+    
+    # print(curl_request)
+    # logging.warn(f"response_data: {response_data}")
 
-    access_token = ''
-    if r.status_code == 200:
-        access_token = response_data['access_token']
-    logging.warn(access_token)
-    display_data = {'Access Token Data' :[('Access Token ', access_token)]}
+    # access_token = ''
+    # if r.status_code == 200:
+    #     access_token = response_data['access_token']
+    # logging.warn(access_token)
+    # display_data = {'Access Token Data' :[('Access Token ', access_token)]}
 
     #set the patient ID
 
     return render_template('Authorized.html', title=' SMART on FHIR Viewer', 
-    data = display_data, token=access_token, patient="e63wRTbPfr1p8UW81d8Seiw3")
+    data = {}, token="", patient="e63wRTbPfr1p8UW81d8Seiw3")
 
 @app.route('/api/fhir', methods=['GET'])
 def getPatientFHIRResource():
@@ -262,5 +267,9 @@ def getJWKS():
     }
     return jsonify(jwks)
 
+@app.route('/api/hello', methods=['GET'])
+def hello_world():
+    return jsonify({"message": "hello world"})
+
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=80)
+    app.run(host='0.0.0.0', port=8000, debug=True)

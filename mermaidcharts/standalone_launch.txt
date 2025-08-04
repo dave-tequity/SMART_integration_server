@@ -1,0 +1,13 @@
+sequenceDiagram
+    participant Patient
+    participant SMARTApp
+    participant EpicOAuth
+
+    Patient->>SMARTApp: Requests standalone launch
+    SMARTApp->>Patient: Provides Epic authorize URL
+    Patient->>EpicOAuth: Navigates to Epic authorize URL
+    EpicOAuth->>Patient: Authenticates
+    EpicOAuth->>SMARTApp: Redirect /launch/redirect?code=...&state=...
+    SMARTApp->>EpicOAuth: POST /token (exchange code for token)
+    EpicOAuth->>SMARTApp: Returns access_token, id_token
+    SMARTApp->>Patient: Renders authorized view
