@@ -30,18 +30,21 @@ def getEndpointsWellKnown(iss):
     #GET THE JWKS URI instead
     # , RETURN OBJECTS?
     conf_headers = {'Accept': 'application/fhir+json'}
-    well_known_url = f'{iss}.well-known/openid-configuration'
+    well_known_url = f'{iss}/.well-known/openid-configuration'
     well_known_data = requests.get(well_known_url, headers=conf_headers)
     jwks_uri = None
     well_known_json = None
     token_endpoint = None
+    authorize_endpoint = None
     if well_known_data.status_code == 200:
         well_known_json = json.loads(well_known_data.text)
         jwks_uri = well_known_json.get('jwks_uri')
         token_endpoint = well_known_json.get('token_endpoint')
+        authorize_endpoint = well_known_json.get('authorization_endpoint')
         
 
     endpoints = {
+        'authorize_endpoint': authorize_endpoint,
         'token_endpoint': token_endpoint,
         'well_known_url': well_known_url,
         'well_known_json': well_known_json,

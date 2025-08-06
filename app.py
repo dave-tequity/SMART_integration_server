@@ -12,6 +12,8 @@ import time
 import uuid
 import base64
 import os
+from hashlib import sha256
+import secrets
 import common
 import utilities.config as config
 from dotenv import load_dotenv
@@ -37,6 +39,9 @@ baseurl = config.BASE_URL
 fhir_epic_url = 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/authorize'
 redirect_extension = '/launch/redirect'
 
+# Store PKCE code_verifiers (in production, use Redis or database)
+pkce_store = {}
+
 @app.route('/')
 def home():
     return render_template('Home.html', title='SMART on FHIR Viewer')
@@ -59,95 +64,95 @@ def provider_launch():
         # endpoints = common.getEndpointsMetadata(iss)
         wellKnownEndpoints = common.getEndpointsWellKnown(iss)
 
+        # Check if we got the required endpoints
+        if not wellKnownEndpoints.get('authorize_endpoint'):
+            return f"Could not retrieve authorization endpoint from {iss}"
 
         client_id = os.environ.get(f'provider_client_id')
-        redirect_uri = os.environ.get('baseurl') + '/launch/redirect'
+        redirect_uri = baseurl + '/launch/redirect'
 
-        # for native mobile apps add PKCE support
-        # code_challenge = sha256(b"randomcontent").hexdigest()
-
-        resp = make_response(redirect(f"""{wellKnownEndpoints['authorize_endpoint']}?scope={urllib.parse.quote("launch openid fhirUser")}&response_type=code&
-                                      redirect_uri={urllib.parse.quote(redirect_uri)}&client_id={client_id}&launch={launch}
-                                      &state={state}&aud={iss}""")) #+'&code_challenge='+code_challenge+'&code_challenge_method=S256'
-        print(f'response url: {resp}')
-        session = Session(
-            id = state,
-            iss = iss,
-            endpoint_data = wellKnownEndpoints,
-            launch_token = launch
-            )
+        # PKCE support according to RFC 7636 and SMART on FHIR spec
+        # Generate a cryptographically random code_verifier (43-128 characters)
+        code_verifier = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode('utf-8').rstrip('=')
         
-        db.session.add(session)
-        db.session.commit()
+        # Create code_challenge = BASE64URL(SHA256(code_verifier))
+        code_challenge = base64.urlsafe_b64encode(sha256(code_verifier.encode('utf-8')).digest()).decode('utf-8').rstrip('=')
+        
+        # Store code_verifier for later use in token exchange (use state as key)
+        pkce_store[state] = code_verifier
 
-    return resp
+        # Construct the authorization URL
+        auth_url = f"""{wellKnownEndpoints['authorize_endpoint']}?scope={urllib.parse.quote("launch openid fhirUser")}&response_type=code&redirect_uri={urllib.parse.quote(redirect_uri)}&client_id={client_id}&launch={launch}&state={state}&aud={iss}&code_challenge={code_challenge}&code_challenge_method=S256"""
+        
+        print(f'Authorization URL: {auth_url}')
+        print(f'Code verifier: {code_verifier}')
+        print(f'Code challenge: {code_challenge}')
+        
+        # resp = make_response(redirect(auth_url)) #+'&code_challenge='+code_challenge+'&code_challenge_method=S256'
+        # print(f'Response status: {resp.status_code}')
+        # print(f'Response headers: {dict(resp.headers)}')
+        # print(f'Redirect location: {resp.location}')
+        # session = Session(
+        #     id = state,
+        #     iss = iss,
+        #     endpoint_data = wellKnownEndpoints,
+        #     launch_token = launch
+        #     )
+        
+        # db.session.add(session)
+        # db.session.commit()
+
+    return auth_url
 
 @app.route('/launch/redirect', methods=['GET', 'POST'])
 def SMART_redirect():
     code = request.args.get("code")
     state = request.args.get("state")
-
-    #remove this if not using a database
-    session = Session.query.filter_by(id=state).first()
-
-    #a "standalone" SMART launch by a patient
-    if code and state:
-        #only supporting Epic for now for standalone patient launches
-        token_endpoint = 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token'
-        jwks_uri = 'https://fhir.epic.com/interconnect-fhir-oauth/api/epic/2019/Security/Open/PublicKeys/530027/OIDC'
-
-        h = {"Content-Type": "application/x-www-form-urlencoded"}
-        redirect_extension = '/launch/redirect'
-        redirect_uri = baseurl + redirect_extension
-        client_id = os.environ.get('patient_client_id')
-
-        b = {'grant_type': 'authorization_code',
-        'code': code, #taken directly from inbound request
-        'redirect_uri': redirect_uri}
-
-        secret = client_id + ':' + os.environ.get('epic_patient_secret')
-        h['Authorization'] = 'Basic '+ str(base64.b64encode(secret.encode('ascii')), 'utf-8')
- 
-        p = requests.post(token_endpoint, data=b, headers=h)
-        print(f'token response: {p.text}')
-        resp = json.loads(p.text)
-
-        #Validate the OIDC token with the pre-defined JWKS URI
-        if resp:
-            validated = common.validate_fhir_token(client_id, token=resp.get("id_token"), jwks_uri=jwks_uri)
-        if validated:
-            return render_template('Authorized.html', title=' SMART on FHIR Viewer', data = resp)
-        else:
-            return f"OIDC JWKS validation failed"
-
+    print(f'code: {code}')
+    print(f'state: {state}')
 
     #a provider launch or patient launch from the portal
     #you'll have to hardcode the token_endpoint and bypass the OIDC validation if not using a database
-    if code and state and session:
-        token_endpoint = session.token_endpoint
+    if code and state:
+        # Get the stored code_verifier for PKCE
+        code_verifier = pkce_store.get(state)
+        print(f'code_verifier: {code_verifier}')
+        if not code_verifier:
+            return f"Invalid state parameter or expired PKCE code_verifier"
+        
+        # token_endpoint = session.token_endpoint
+        token_endpoint = 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token'
         h = {"Content-Type": "application/x-www-form-urlencoded"}
         redirect_uri = baseurl + redirect_extension
+        print(f'redirect_uri: {redirect_uri}')
         client_id = os.environ.get('provider_client_id')
 
+        # Include code_verifier for PKCE verification
         b = {'grant_type': 'authorization_code',
         'code': code, #taken directly from inbound request
-        'redirect_uri': redirect_uri}
+        'redirect_uri': redirect_uri,
+        'code_verifier': code_verifier,
+        'client_id': client_id  # Add client_id to the body instead of using Basic auth
+        }
 
-        secret = client_id + ':' + os.environ.get('epic_provider_secret')
-        h['Authorization'] = 'Basic '+ str(base64.b64encode(secret.encode('ascii')), 'utf-8')
+        # Remove Basic auth for PKCE flow - code_verifier provides authentication
+        # secret = client_id + ':' + os.environ.get('epic_provider_secret')
+        # h['Authorization'] = 'Basic '+ str(base64.b64encode(secret.encode('ascii')), 'utf-8')
  
         p = requests.post(token_endpoint, data=b, headers=h)
         print(f'token response: {p.text}')
         resp = json.loads(p.text)
+        print(f'token response: {resp}')
+        print(f'token response HTTP status: {p.status_code}')
+        
+        # Clean up the stored code_verifier
+        del pkce_store[state]
 
-        #Validate the OIDC token with the pre-defined JWKS URI
         if resp:
-            validated = common.validate_fhir_token(client_id, token=resp.get("id_token"), jwks_uri=session.get("jwks_uri"))
-        if validated:
             return render_template('Authorized.html', title=' SMART on FHIR Viewer', data = resp)
         else:
             return f"OIDC JWKS validation failed"
-    return f"There was a problem with the request. Code: {code} State: {state} Session {session}"
+    return f"There was a problem with the request. Code: {code} State: {state}"
 
 @app.route('/api/config/standalone', methods=['GET'])
 def get_standalone_config():
@@ -155,13 +160,18 @@ def get_standalone_config():
     aud = 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/authorize'
     redirect =  baseurl + redirect_extension
     state = str(uuid.uuid4().int)
-    url = f"""https://fhir.epic.com/interconnect-fhir-oauth/oauth2/authorize?
-state={state}
-&scope=launch openid fhirUser&
-response_type=code
-&redirect_uri={urllib.parse.quote(redirect)}
-&client_id={patient_audience_client_id}
-&aud={urllib.parse.quote(aud)}"""
+    
+    # PKCE support for standalone launch
+    # Generate a cryptographically random code_verifier (43-128 characters)
+    code_verifier = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode('utf-8').rstrip('=')
+    
+    # Create code_challenge = BASE64URL(SHA256(code_verifier))
+    code_challenge = base64.urlsafe_b64encode(sha256(code_verifier.encode('utf-8')).digest()).decode('utf-8').rstrip('=')
+    
+    # Store code_verifier for later use in token exchange (use state as key)
+    pkce_store[state] = code_verifier
+    
+    url = f"""https://fhir.epic.com/interconnect-fhir-oauth/oauth2/authorize?state={state}&scope=launch openid fhirUser&response_type=code&redirect_uri={urllib.parse.quote(redirect)}&client_id={patient_audience_client_id}&aud={urllib.parse.quote(aud)}&code_challenge={code_challenge}&code_challenge_method=S256"""
 
     wellKnownEndpoints = common.getEndpointsWellKnown(aud)
 
@@ -267,8 +277,7 @@ def getJWKS():
     }
     return jsonify(jwks)
 
-@app.route('/api/hello', methods=['GET'])
-def hello_world():
+
     return jsonify({"message": "hello world"})
 
 if __name__ == "__main__":
