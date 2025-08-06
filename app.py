@@ -102,7 +102,7 @@ def provider_launch():
         # db.session.add(session)
         # db.session.commit()
 
-    return auth_url
+    return redirect(auth_url)
 
 @app.route('/launch/redirect', methods=['GET', 'POST'])
 def SMART_redirect():
@@ -149,7 +149,56 @@ def SMART_redirect():
         del pkce_store[state]
 
         if resp:
-            return render_template('Authorized.html', title=' SMART on FHIR Viewer', data = resp)
+            #get patient data
+            access_token = resp.get('access_token')
+            patient_id = resp.get('patient')
+            patient_data = {}
+            encounter_data = {}
+            coverage_data = {}
+            care_team_data = {}
+            allergy_data = {}
+            if access_token and patient_id:
+                patient_url = f'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/Patient/{patient_id}'
+                encounter_url = f'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/Encounter?patient={patient_id}'
+                coverage_url = f'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/Coverage?patient={patient_id}'
+                care_team_url = f'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/CareTeam?patient={patient_id}'
+                allergy_url = f'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/AllergyIntolerance?patient={patient_id}'
+                
+                head = {
+                    "Authorization": "Bearer "+ access_token,
+                    "Accept": "application/fhir+json"
+                }
+                
+                #get patient data
+                r_patient = requests.get(patient_url, headers=head)
+                if r_patient.status_code == 200:
+                    patient_data = r_patient.json()
+
+                #get encounter data
+                r_encounter = requests.get(encounter_url, headers=head)
+                if r_encounter.status_code == 200:
+                    encounter_data = r_encounter.json()
+                
+                #get coverage data
+                r_coverage = requests.get(coverage_url, headers=head)
+                if r_coverage.status_code == 200:
+                    coverage_data = r_coverage.json()
+
+                #get care team data
+                r_care_team = requests.get(care_team_url, headers=head)
+                if r_care_team.status_code == 200:
+                    care_team_data = r_care_team.json()
+                
+                #get allergy data
+                r_allergy = requests.get(allergy_url, headers=head)
+                if r_allergy.status_code == 200:
+                    allergy_data = r_allergy.json()
+
+            #decode dob
+            if 'dob' in resp:
+                resp['dob'] = urllib.parse.unquote(resp['dob'])
+
+            return render_template('Authorized.html', title=' SMART on FHIR Viewer', data = resp, patient_data=patient_data, encounter_data=encounter_data, coverage_data=coverage_data, care_team_data=care_team_data, allergy_data=allergy_data)
         else:
             return f"OIDC JWKS validation failed"
     return f"There was a problem with the request. Code: {code} State: {state}"

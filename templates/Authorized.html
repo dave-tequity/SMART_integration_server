@@ -2,41 +2,134 @@
 
 {% block content %}
 <div class="content">
-    {% for key, value in data.items() %}
-        <div class="card">
-            <h2> {{ key }}</h2>
-            <p class="content-value" data-token="{{ value if (key == 'access_token' or key == 'patient') else none }}">{{ value }}</p>
-        </div>
-    {% endfor %}
-</div>
-<div class="buttons">
-    <div class="button" onclick="PatientResource()"><strong class="buttontext">Fetch Patient Resource</strong></div>
-</div>
-<div class="resourceviewer">
-    <h1 class="resourceviewer-header">Resource</h1>
-    <pre class="json-viewer"></pre>
-    <!-- <div class="resourceviewer-text"></div> -->
+    <div class="card">
+        <h2>Patient Data</h2>
+        {% if patient_data %}
+            <table>
+                <tr>
+                    <th>Field</th>
+                    <th>Value</th>
+                </tr>
+                <tr>
+                    <td>ID</td>
+                    <td>{{ patient_data.id }}</td>
+                </tr>
+                <tr>
+                    <td>Gender</td>
+                    <td>{{ patient_data.gender }}</td>
+                </tr>
+                <tr>
+                    <td>Birth Date</td>
+                    <td>{{ patient_data.birthDate }}</td>
+                </tr>
+                {% if patient_data.name %}
+                <tr>
+                    <td>Name</td>
+                    <td>{{ patient_data.name[0].text }}</td>
+                </tr>
+                {% endif %}
+                {% if patient_data.address %}
+                <tr>
+                    <td>Address</td>
+                    <td>{{ patient_data.address[0].text }}</td>
+                </tr>
+                {% endif %}
+            </table>
+        {% else %}
+            <p>Could not retrieve patient data.</p>
+        {% endif %}
+    </div>
+    <div class="card">
+        <h2>Encounters</h2>
+        {% if encounter_data and encounter_data.entry %}
+            <table>
+                <tr>
+                    <th>ID</th>
+                    <th>Status</th>
+                    <th>Class</th>
+                    <th>Type</th>
+                </tr>
+                {% for entry in encounter_data.entry %}
+                <tr>
+                    <td>{{ entry.resource.id }}</td>
+                    <td>{{ entry.resource.status }}</td>
+                    <td>{{ entry.resource.class.display }}</td>
+                    <td>
+                        {% if entry.resource.type %}
+                            {{ entry.resource.type[0].text }}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+        {% else %}
+            <p>No encounter data found.</p>
+        {% endif %}
+    </div>
+    <div class="card">
+        <h2>Coverage</h2>
+        {% if coverage_data and coverage_data.entry %}
+            <table>
+                <tr>
+                    <th>Subscriber</th>
+                    <th>Subscriber ID</th>
+                    <th>Payor</th>
+                    <th>Status</th>
+                </tr>
+                {% for entry in coverage_data.entry %}
+                <tr>
+                    <td>{{ entry.resource.subscriber.display }}</td>
+                    <td>{{ entry.resource.subscriberId }}</td>
+                    <td>{{ entry.resource.payor[0].display }}</td>
+                    <td>{{ entry.resource.status }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        {% else %}
+            <p>No coverage data found.</p>
+        {% endif %}
+    </div>
+    <div class="card">
+        <h2>Care Team</h2>
+        {% if care_team_data and care_team_data.entry %}
+            <table>
+                <tr>
+                    <th>Member</th>
+                    <th>Role</th>
+                    <th>Period Start</th>
+                </tr>
+                {% for entry in care_team_data.entry %}
+                <tr>
+                    <td>{{ entry.resource.participant[0].member.display }}</td>
+                    <td>{{ entry.resource.participant[0].role[0].text }}</td>
+                    <td>{{ entry.resource.participant[0].period.start }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        {% else %}
+            <p>No care team data found.</p>
+        {% endif %}
+    </div>
+    <div class="card">
+        <h2>Allergy Intolerance</h2>
+        {% if allergy_data and allergy_data.entry %}
+            <table>
+                <tr>
+                    <th>Substance</th>
+                    <th>Clinical Status</th>
+                    <th>Verification Status</th>
+                </tr>
+                {% for entry in allergy_data.entry %}
+                <tr>
+                    <td>{{ entry.resource.code.text }}</td>
+                    <td>{{ entry.resource.clinicalStatus.coding[0].display }}</td>
+                    <td>{{ entry.resource.verificationStatus.coding[0].display }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        {% else %}
+            <p>No allergy data found.</p>
+        {% endif %}
+    </div>
 </div>
 {% endblock %}
-
-<script>
-    document.addEventListener("DOMContentLoaded", function() {
-        console.log("Script loaded and DOM fully parsed."); // Debugging log
-        window.PatientResource = function() {
-            console.log("PatientResource function called."); // Debugging log
-            let token = $(".home").attr("data-token");
-            console.log("Token:", token);
-            let patient = $(".home").attr("data-patient");
-            console.log("Patient:", patient);
-
-            const xhr = new XMLHttpRequest();
-            if (patient) {
-                xhr.open('GET', '/api/fhir?access_token=' + token + '&patient=' + patient, true);
-            } else {
-                xhr.open('GET', '/api/fhir?access_token=' + token, true);
-            }
-            xhr.onload = FHIRDataRetrieved;
-            xhr.send();
-        };
-    });
-</script>
