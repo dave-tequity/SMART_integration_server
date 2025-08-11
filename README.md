@@ -5,13 +5,32 @@ Setup instructions:
 
 2. Create a database in Postgres called smart-on-fhir-app
 
-3. Create a .env file in the root and setup the env variables below
+3. Create and activate a Python virtual environment:
 
-4. "pip install -r requirements.txt"
+   On macOS/Linux:
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate
+   ```
+   On Windows:
+   ```cmd
+   python -m venv venv
+   venv\Scripts\activate
+   ```
 
-5. "flask db upgrade" (sets up the tables in the new database)
+4. Create a .env file in the root and setup the env variables below
 
-6. Run the flask app
+5. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+6. Run database migrations to set up the tables:
+   ```bash
+   flask db upgrade
+   ```
+
+7. Run the flask app
 
 
 This app has a private key hardcoded for the server-side launch. You can replace that however you'd like or use it. Included is the corresponding public key that can be associated with your app's client_id on the EHR webpage (e.g. fhir.epic.com)
